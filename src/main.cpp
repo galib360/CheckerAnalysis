@@ -17,11 +17,17 @@ using namespace std;
 int thresh = 220;
 int max_thresh = 255;
 
+vector<Mat> srcs(4);
+vector<Mat> grays(4);
+vector<Mat> dsts(4);
+vector<Mat> P;
+
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
+	int whichcam = *((int*)userdata);
     if  ( event == EVENT_LBUTTONDOWN )
     {
-        cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+        cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ") in "<<whichcam << endl;
     }
 //    else if  ( event == EVENT_RBUTTONDOWN )
 //    {
@@ -37,7 +43,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 //    }
 }
 
-void cornerHarris_demo(Mat &gray) {
+void cornerHarris_demo(Mat &gray, int whichcam) {
 	cout << "called harris demo" << endl;
 	int blockSize = 2;
     int apertureSize = 3;
@@ -48,6 +54,7 @@ void cornerHarris_demo(Mat &gray) {
     Mat dst_norm, dst_norm_scaled;
     normalize( dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat() );
     convertScaleAbs( dst_norm, dst_norm_scaled );
+    dsts.push_back(dst_norm_scaled);
     int countCorners =0;
     for( int i = 0; i < dst_norm.rows ; i++ )
     {
@@ -57,15 +64,15 @@ void cornerHarris_demo(Mat &gray) {
             {
                 circle( dst_norm_scaled, Point(j,i), 5,  Scalar(0), 2, 8, 0 );
                 corners.push_back(Point(j,i));
-                cout<<Point(j,i)<<endl;
+                //cout<<Point(j,i)<<endl;
                 countCorners++;
             }
         }
     }
     cout<<"total corners found : "<<countCorners<<endl;
-    namedWindow("ImageDisplay", 1);
 
-    setMouseCallback("ImageDisplay", CallBackFunc, NULL);
+    namedWindow("ImageDisplay", 1);
+    setMouseCallback("ImageDisplay", CallBackFunc, &whichcam);
     imshow( "ImageDisplay", dst_norm_scaled );
     imwrite("corners.png", dst_norm_scaled);
 
@@ -75,26 +82,53 @@ void cornerHarris_demo(Mat &gray) {
 
     cornerSubPix(gray, corners, Size(5, 5), Size(-1, -1),
 			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-    for( size_t i = 0; i < corners.size(); i++ )
-    {
-        cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << endl;
-    }
+//    for( size_t i = 0; i < corners.size(); i++ )
+//    {
+//        cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << endl;
+//    }
 }
 
 int main(){
 
-	Size patternsize(16,10); //interior number of corners
-	Mat img = imread("4.jpg"); //source image
-	Mat gray;
+	string inputdir = "data/";
+//	Size patternsize(16,10); //interior number of corners
+	for(int i = 0; i<4; i++){
+		string inputfile = inputdir + to_string(i)+ ".jpg";
+		Mat img = imread(inputfile);
+		Mat gray;
+		cvtColor( img, gray, CV_BGR2GRAY );
+		srcs.push_back(img);
+		grays.push_back(gray);
+		cornerHarris_demo(gray, i);
 
-	cvtColor( img, gray, CV_BGR2GRAY );
+		//////////read camera matrices---------->
+
+
+	}
+
+
+	//triagulate points here--------------------->
+
+
+
+
+
+	//Calculate eucledian distance here----------------------->
+
+
+
+
+//	Mat img = imread("4.jpg"); //source image
+//	Mat gray;
+//
+//	cvtColor( img, gray, CV_BGR2GRAY );
 //	Mat temp ;
 //	GaussianBlur(gray, gray, Size(0, 0), 105); //hardcoded filter size, to be tested on 50 mm lens
 //	addWeighted(gray, 1.8, gray, -0.8,0,gray) ;
-	vector<Point2f> corners; //this will be filled by the detected corners
+//	vector<Point2f> corners; //this will be filled by the detected corners
 //	imshow("src", img);
 //	waitKey(0);
-	cornerHarris_demo(gray);
+//	cornerHarris_demo(gray);
 //	imshow("gray", gray);
 //	waitKey(0);
 
