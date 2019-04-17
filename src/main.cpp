@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <vector>
 
 using namespace cv;
 using namespace std;
@@ -17,6 +18,10 @@ using namespace std;
 typedef struct {
 	vector<Point2f> pnts2d;
 } campnts;
+
+typedef struct {
+	vector<Point3f> pnts2dH;
+} campntsH;
 
 
 int thresh = 220;
@@ -34,8 +39,12 @@ vector<Mat> quats;
 
 
 vector<campnts> pnts(4);
+vector<campntsH> pntsH(4);
+
 vector<Mat> points3D;
 vector<Mat> points3Dnorm;
+
+vector<vector<Vec3f>> P3D(4);
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -45,6 +54,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ") in "<<whichcam << endl;
 		Point2f point = ((Point_<float>)x,(Point_<float>)y);
         pnts[whichcam].pnts2d.push_back(point);
+//        Point3f pointH = ((Point_<float>)x,(Point_<float>)y, (Point_<float>)1);
+//        pntsH[whichcam].pnts2dH.push_back(pointH);
     }
 //    else if  ( event == EVENT_RBUTTONDOWN )
 //    {
@@ -168,7 +179,7 @@ int main(){
 				tvec.at<float>(j, 0) = temp;
 				c++;
 			}
-			ts.push_back(tvec);
+
 
 			float qw = quat.at<float>(0,0);
 			float qx = quat.at<float>(1,0);
@@ -181,18 +192,34 @@ int main(){
 			qz *= n;
 			qw *= n;
 
-			rotm.at<float>(0,0) = 1.0f - 2.0f*qy*qy - 2.0f*qz*qz;
-			rotm.at<float>(0,1) = 2.0f*qx*qy - 2.0f*qz*qw;
-			rotm.at<float>(0,2) = 2.0f*qx*qz + 2.0f*qy*qw;
-			rotm.at<float>(1,0) = 2.0f*qx*qy + 2.0f*qz*qw;
-			rotm.at<float>(1,1) = 1.0f - 2.0f*qx*qx - 2.0f*qz*qz;
-			rotm.at<float>(1,2) = 2.0f*qy*qz - 2.0f*qx*qw;
-			rotm.at<float>(2,0) = 2.0f*qx*qz - 2.0f*qy*qw;
-			rotm.at<float>(2,1) = 2.0f*qy*qz + 2.0f*qx*qw;
-			rotm.at<float>(2,2) = 1.0f - 2.0f*qx*qx - 2.0f*qy*qy;
+//			rotm.at<float>(0,0) = 1.0f - 2.0f*qy*qy - 2.0f*qz*qz;
+//			rotm.at<float>(0,1) = 2.0f*qx*qy - 2.0f*qz*qw;
+//			rotm.at<float>(0,2) = 2.0f*qx*qz + 2.0f*qy*qw;
+//			rotm.at<float>(1,0) = 2.0f*qx*qy + 2.0f*qz*qw;
+//			rotm.at<float>(1,1) = 1.0f - 2.0f*qx*qx - 2.0f*qz*qz;
+//			rotm.at<float>(1,2) = 2.0f*qy*qz - 2.0f*qx*qw;
+//			rotm.at<float>(2,0) = 2.0f*qx*qz - 2.0f*qy*qw;
+//			rotm.at<float>(2,1) = 2.0f*qy*qz + 2.0f*qx*qw;
+//			rotm.at<float>(2,2) = 1.0f - 2.0f*qx*qx - 2.0f*qy*qy;
 
-			//rotm = rotm.t();
+//			a = qw; b = qx; c=qy; d = qz;
+
+			rotm.at<float>(0, 0) = 2*qw*qw - 1 + 2*qx*qx;
+			rotm.at<float>(0, 1) = 2 * qx * qy - 2 * qz * qw;
+			rotm.at<float>(0, 2) = 2. * qx * qz + 2.0f * qy * qw;
+			rotm.at<float>(1, 0) = 2 * qx * qy + 2* qz * qw;
+			rotm.at<float>(1, 1) = 2*qw*qw - 1 + 2*qy*qy;
+			rotm.at<float>(1, 2) = 2 * qy * qz - 2 * qx * qw;
+			rotm.at<float>(2, 0) = 2 * qx * qz - 2 * qy * qw;
+			rotm.at<float>(2, 1) = 2 * qy * qz + 2 * qx * qw;
+			rotm.at<float>(2, 2) = 2*qw*qw - 1 + 2*qz*qz;
+
+
+			rotm = rotm.t();
 			Rs.push_back(rotm);
+
+			tvec = -rotm * tvec;
+			ts.push_back(tvec);
 
 			Rt.at<float>(0,0) = rotm.at<float>(0,0);
 			Rt.at<float>(0,1) = rotm.at<float>(0,1);
@@ -257,7 +284,42 @@ int main(){
 			}
 		}
 		points3Dnorm.push_back(temp);
-		cout<<"3D points for cam0"<<to_string(c)<<" : "<< temp<<endl;
+		cout<<"3D points for cam0"<<to_string(c)<<" : "<<endl;
+		cout<<temp<<endl;
+	}
+
+	for(int cam = 0; cam<4; cam++){
+		for(int p = 0; p<pnts[cam].pnts2d.size(); p++){
+			Mat temp2d(4,1,cv::DataType<float>::type, Scalar(1));
+//			Mat temp3d(3,1,cv::DataType<float>::type, Scalar(1));
+			Mat temp3d;
+//			temp2d.at<float>(0,0) = pntsH[cam].pnts2dH[p].x;
+//			temp2d.at<float>(1,0) = pntsH[cam].pnts2dH[p].y;
+//			temp2d.at<float>(2,0) = pntsH[cam].pnts2dH[p].z;
+
+			temp2d.at<float>(0, 0) = pnts[cam].pnts2d[p].x;
+			temp2d.at<float>(1, 0) = pnts[cam].pnts2d[p].y;
+			temp2d.at<float>(2,0) = 1;
+
+			Mat Pinv(4,4,cv::DataType<float>::type, Scalar(0));
+			for(int j = 0; j<3 ;j++){
+				for(int k = 0; k<4; k++){
+					Pinv.at<float>(j,k) = P[cam].at<float>(j,k);
+				}
+			}
+			Pinv.at<float>(3,3) = 1;
+			Pinv = Pinv.inv();
+
+//			cout<<"P inv : "<<Pinv<<endl;
+//			temp3d = Ks[cam].inv() * temp2d;
+			temp3d = Pinv * temp2d;
+			Vec3f P3(temp3d.at<float>(0,0),temp3d.at<float>(1,0),temp3d.at<float>(2,0));
+			P3D[cam].push_back(P3);
+
+			cout<<"for cam "<< to_string(cam)<<" and for point "<<p<<" 3D point: "<<endl;
+//			cout<<temp3d<<endl;
+			cout<<P3<<endl;
+		}
 	}
 
 
@@ -265,7 +327,32 @@ int main(){
 
 	//Calculate eucledian distance here----------------------->
 
+	int count = 0;
+	float finaldistance = 0;
 
+	for(int cam = 0; cam<4; cam++){
+		for(int aux = 0; aux<4; aux++){
+			for (int p = 0; p < 4; p++) {
+				float x1 = P3D[cam][p][0];
+				float y1 = P3D[cam][p][1];
+				float z1 = P3D[cam][p][2];
+				float x2 = P3D[aux][p][0];
+				float y2 = P3D[aux][p][1];
+				float z2 = P3D[aux][p][2];
+				float distance = hypot(hypot(x1 - x2, y1 - y2), z1 - z2);
+				finaldistance += distance;
+				if(cam!=aux){
+					count++;
+				}
+
+				cout << distance << endl;
+			}
+
+		}
+	}
+	finaldistance = finaldistance/count;
+	cout<<count<<endl;
+	cout<<"Average distance : "<<finaldistance;
 
 
 //	Mat img = imread("4.jpg"); //source image
