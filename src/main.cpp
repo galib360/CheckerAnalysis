@@ -22,19 +22,20 @@ typedef struct {
 int thresh = 220;
 int max_thresh = 255;
 
-vector<Mat> srcs(4);
-vector<Mat> grays(4);
-vector<Mat> dsts(4);
+vector<Mat> srcs;
+vector<Mat> grays;
+vector<Mat> dsts;
 vector<Mat> P(4);
-vector<Mat> Ks(4);
-vector<Mat> Rs(4);
-vector<Mat> Rts(4);
-vector<Mat> ts(4);
-vector<Mat> quats(4);
+vector<Mat> Ks;
+vector<Mat> Rs;
+vector<Mat> Rts;
+vector<Mat> ts;
+vector<Mat> quats;
 
 
-vector<campnts> pnts;
+vector<campnts> pnts(4);
 vector<Mat> points3D;
+vector<Mat> points3Dnorm;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -42,6 +43,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     if  ( event == EVENT_LBUTTONDOWN )
     {
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ") in "<<whichcam << endl;
+		Point2f point = ((Point_<float>)x,(Point_<float>)y);
+        pnts[whichcam].pnts2d.push_back(point);
     }
 //    else if  ( event == EVENT_RBUTTONDOWN )
 //    {
@@ -113,7 +116,7 @@ int main(){
 		cvtColor( img, gray, CV_BGR2GRAY );
 		srcs.push_back(img);
 		grays.push_back(gray);
-		cornerHarris_demo(gray, i);
+//		cornerHarris_demo(gray, i);
 
 		//////////read camera matrices---------->
 		ifstream txtfile = ifstream(inputdir + to_string(i) + ".txt");
@@ -188,7 +191,7 @@ int main(){
 			rotm.at<float>(2,1) = 2.0f*qy*qz + 2.0f*qx*qw;
 			rotm.at<float>(2,2) = 1.0f - 2.0f*qx*qx - 2.0f*qy*qy;
 
-			rotm = rotm.t();
+			//rotm = rotm.t();
 			Rs.push_back(rotm);
 
 			Rt.at<float>(0,0) = rotm.at<float>(0,0);
@@ -211,6 +214,8 @@ int main(){
 
 			//cout<<"Projection Matrix: "<< P[i]<<endl;
 
+			cornerHarris_demo(gray, i);
+
 		}
 
 
@@ -219,7 +224,41 @@ int main(){
 
 
 	//triagulate points here--------------------->
+	Mat temp0(4, pnts[0].pnts2d.size(), CV_32F);
+	Mat temp1(4, pnts[1].pnts2d.size(), CV_32F);
+	Mat temp2(4, pnts[2].pnts2d.size(), CV_32F);
+	Mat temp3(4, pnts[3].pnts2d.size(), CV_32F);
 
+	triangulatePoints(P[0], P[1], pnts[0].pnts2d, pnts[1].pnts2d, temp0);
+	cout<<"3D points for cam00 : "<< temp0<<endl;
+	triangulatePoints(P[1], P[2], pnts[1].pnts2d, pnts[2].pnts2d, temp1);
+	triangulatePoints(P[2], P[3], pnts[2].pnts2d, pnts[3].pnts2d, temp2);
+	triangulatePoints(P[3], P[0], pnts[3].pnts2d, pnts[0].pnts2d, temp3);
+
+	points3D.push_back(temp0);
+	points3D.push_back(temp1);
+	points3D.push_back(temp2);
+	points3D.push_back(temp3);
+
+	temp0.release();
+	temp1.release();
+	temp2.release();
+	temp3.release();
+
+	cout<<"Size of points 3D: "<<points3D.size()<<endl;
+
+	for (int c = 0; c<points3D.size(); c++){
+		Mat temp;
+		points3D[c].copyTo(temp);
+		for (int k = 0; k < temp.cols; k++) {
+			for (int j = 0; j < 4; j++) {
+				temp.at<float>(j, k) = temp.at<float>(j, k)
+						/ temp.at<float>(3, k);
+			}
+		}
+		points3Dnorm.push_back(temp);
+		cout<<"3D points for cam0"<<to_string(c)<<" : "<< temp<<endl;
+	}
 
 
 
