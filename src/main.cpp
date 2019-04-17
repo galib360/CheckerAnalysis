@@ -290,7 +290,7 @@ int main(){
 
 	for(int cam = 0; cam<4; cam++){
 		for(int p = 0; p<pnts[cam].pnts2d.size(); p++){
-			Mat temp2d(4,1,cv::DataType<float>::type, Scalar(1));
+			Mat temp2d(3,1,cv::DataType<float>::type, Scalar(1));
 //			Mat temp3d(3,1,cv::DataType<float>::type, Scalar(1));
 			Mat temp3d;
 //			temp2d.at<float>(0,0) = pntsH[cam].pnts2dH[p].x;
@@ -300,6 +300,7 @@ int main(){
 			temp2d.at<float>(0, 0) = pnts[cam].pnts2d[p].x;
 			temp2d.at<float>(1, 0) = pnts[cam].pnts2d[p].y;
 			temp2d.at<float>(2,0) = 1;
+//			temp2d.at<float>(3,0) = 0;
 
 			Mat Pinv(4,4,cv::DataType<float>::type, Scalar(0));
 			for(int j = 0; j<3 ;j++){
@@ -312,12 +313,14 @@ int main(){
 
 //			cout<<"P inv : "<<Pinv<<endl;
 //			temp3d = Ks[cam].inv() * temp2d;
-			temp3d = Pinv * temp2d;
+//			cv::Mat wcPoint = rotationMatrix.inv() * (s * intrinsics.inv() * uvPoint - tvec);
+			temp3d = Rs[cam].inv() * Ks[cam].inv() * temp2d - ts[cam];
+//			temp3d = Pinv * temp2d;
 			Vec3f P3(temp3d.at<float>(0,0),temp3d.at<float>(1,0),temp3d.at<float>(2,0));
 			P3D[cam].push_back(P3);
 
 			cout<<"for cam "<< to_string(cam)<<" and for point "<<p<<" 3D point: "<<endl;
-//			cout<<temp3d<<endl;
+			cout<<temp3d<<endl;
 			cout<<P3<<endl;
 		}
 	}
