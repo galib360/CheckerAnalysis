@@ -14,13 +14,27 @@ using namespace cv;
 using namespace std;
 
 
+typedef struct {
+	vector<Point2f> pnts2d;
+} campnts;
+
+
 int thresh = 220;
 int max_thresh = 255;
 
 vector<Mat> srcs(4);
 vector<Mat> grays(4);
 vector<Mat> dsts(4);
-vector<Mat> P;
+vector<Mat> P(4);
+vector<Mat> Ks(4);
+vector<Mat> Rs(4);
+vector<Mat> Rts(4);
+vector<Mat> ts(4);
+vector<Mat> quats(4);
+
+
+vector<campnts> pnts;
+vector<Mat> points3D;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -102,6 +116,103 @@ int main(){
 		cornerHarris_demo(gray, i);
 
 		//////////read camera matrices---------->
+		ifstream txtfile = ifstream(inputdir + to_string(i) + ".txt");
+		vector<string> fid;
+		std::string line;
+		vector<string> linedata;
+		int c = 0;
+
+		while (std::getline(txtfile, line)) {
+			std::stringstream linestream(line);
+			string val;
+			while (linestream >> val) {
+				linedata.push_back(val);
+				//cout<<val<<endl;
+			}
+		}
+
+		while (c < linedata.size()) {
+			fid.push_back(linedata[c]);
+			c++;
+			//Put data into K
+			Mat kk(3, 3, cv::DataType<float>::type, Scalar(1));
+			Mat rotm(3, 3, cv::DataType<float>::type, Scalar(1));
+			Mat Rt(3, 4, cv::DataType<float>::type, Scalar(1));
+			Mat tvec(3, 1, cv::DataType<float>::type, Scalar(1));
+			Mat quat(4, 1, cv::DataType<float>::type, Scalar(1));
+			for (int j = 0; j < 3; j++) {
+				for (int k = 0; k < 3; k++) {
+					float temp = strtof((linedata[c]).c_str(), 0);
+
+					kk.at<float>(j, k) = temp;
+					c++;
+				}
+			}
+			//kk = kk.t();
+			Ks.push_back(kk);
+
+			for (int j = 0; j < 4; j++) {
+				float temp = strtof((linedata[c]).c_str(), 0);
+				quat.at<float>(j, 0) = temp;
+				c++;
+			}
+			quats.push_back(quat);
+
+			//cout<<"quat : " << quat<<endl;
+
+			for (int j = 0; j < 3; j++) {
+				float temp = strtof((linedata[c]).c_str(), 0);
+				tvec.at<float>(j, 0) = temp;
+				c++;
+			}
+			ts.push_back(tvec);
+
+			float qw = quat.at<float>(0,0);
+			float qx = quat.at<float>(1,0);
+			float qy = quat.at<float>(2,0);
+			float qz = quat.at<float>(3,0);
+
+			const float n = 1.0f/sqrt(qx*qx+qy*qy+qz*qz+qw*qw);
+			qx *= n;
+			qy *= n;
+			qz *= n;
+			qw *= n;
+
+			rotm.at<float>(0,0) = 1.0f - 2.0f*qy*qy - 2.0f*qz*qz;
+			rotm.at<float>(0,1) = 2.0f*qx*qy - 2.0f*qz*qw;
+			rotm.at<float>(0,2) = 2.0f*qx*qz + 2.0f*qy*qw;
+			rotm.at<float>(1,0) = 2.0f*qx*qy + 2.0f*qz*qw;
+			rotm.at<float>(1,1) = 1.0f - 2.0f*qx*qx - 2.0f*qz*qz;
+			rotm.at<float>(1,2) = 2.0f*qy*qz - 2.0f*qx*qw;
+			rotm.at<float>(2,0) = 2.0f*qx*qz - 2.0f*qy*qw;
+			rotm.at<float>(2,1) = 2.0f*qy*qz + 2.0f*qx*qw;
+			rotm.at<float>(2,2) = 1.0f - 2.0f*qx*qx - 2.0f*qy*qy;
+
+			rotm = rotm.t();
+			Rs.push_back(rotm);
+
+			Rt.at<float>(0,0) = rotm.at<float>(0,0);
+			Rt.at<float>(0,1) = rotm.at<float>(0,1);
+			Rt.at<float>(0,2) = rotm.at<float>(0,2);
+			Rt.at<float>(1,0) = rotm.at<float>(1,0);
+			Rt.at<float>(1,1) = rotm.at<float>(1,1);
+			Rt.at<float>(1,2) = rotm.at<float>(1,2);
+			Rt.at<float>(2,0) = rotm.at<float>(2,0);
+			Rt.at<float>(2,1) = rotm.at<float>(2,1);
+			Rt.at<float>(2,2) = rotm.at<float>(2,2);
+			Rt.at<float>(0,3) = tvec.at<float>(0,0);
+			Rt.at<float>(1,3) = tvec.at<float>(1,0);
+			Rt.at<float>(2,3) = tvec.at<float>(2,0);
+
+			Rts.push_back(Rt);
+
+			Mat Ptemp = kk * Rt;
+			P[i] = (Ptemp);
+
+			//cout<<"Projection Matrix: "<< P[i]<<endl;
+
+		}
+
 
 
 	}
